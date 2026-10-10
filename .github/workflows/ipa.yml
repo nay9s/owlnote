@@ -1,0 +1,88 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    name: Build unsigned iPad IPA
+    # The source uses FoundationModels APIs introduced in the iOS 27 SDK.
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Archive for iPad
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild archive \
+            -project OwlLuna.xcodeproj \
+            -scheme OwlLuna \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/owlnote.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            2>&1 | tee "$RUNNER_TEMP/archive.log" | xcbeautify --renderer github-actions
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/owlnote.xcarchive/Products/Applications/OwlLuna.app"
+          test -f "$app/OwlLuna"
+          test -d "$app/PlugIns/OwlLunaWidgets.appex"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload" "$GITHUB_WORKSPACE/build"
+          ditto "$app" "$RUNNER_TEMP/ipa/Payload/OwlLuna.app"
+          cd "$RUNNER_TEMP/ipa"
+          /usr/bin/zip -qry "$GITHUB_WORKSPACE/build/owlnote-unsigned.ipa" Payload
+          unzip -t "$GITHUB_WORKSPACE/build/owlnote-unsigned.ipa"
+          cd "$GITHUB_WORKSPACE/build"
+          shasum -a 256 owlnote-unsigned.ipa > owlnote-unsigned.ipa.sha256
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: owlnote-unsigned-ipa
+          path: |
+            build/owlnote-unsigned.ipa
+            build/owlnote-unsigned.ipa.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Build summary
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## owlnote IPA
+          Download **owlnote-unsigned-ipa** from this run's Artifacts section.
+          The archive contains the iPad app and its widget extension.
+          This IPA is unsigned. Sign the app and its extension with suitable Apple
+          certificates and provisioning profiles before installing on an iPad.
+          EOF
+
+      - name: Upload archive log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ipa-build-log
+          path: ${{ runner.temp }}/archive.log
+          if-no-files-found: ignore
