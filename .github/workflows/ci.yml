@@ -116,6 +116,7 @@ jobs:
             -only-testing:OwlLunaUITests/NotebookOpenUITests \
             -parallel-testing-enabled NO \
             -resultBundlePath "$RUNNER_TEMP/NotebookOpen.xcresult" \
+            ENABLE_TESTABILITY=YES \
             2>&1 | tee "$RUNNER_TEMP/notebook-open.log" \
             | xcbeautify --renderer github-actions
 
