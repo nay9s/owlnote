@@ -102,7 +102,7 @@ struct PaperDrawer: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: Space.x4) {
-            PaperColorChips(selection: Binding(get: { selectedColor }, set: pickColor))
+            PaperColorChips(selection: Binding(get: { selectedColor }, set: { pickColor($0) }))
             if night, !selectedColor.isDark {
                 Text("In Dark Mode this paper is shown dark. It keeps its colour when exported.")
                     .font(.footnote)

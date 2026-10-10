@@ -150,7 +150,7 @@ struct OwlLunaSettingsView: View {
         return SettingsSection("Daily Journal", note: "Touch and hold a notebook, then choose Use as Daily Journal. Press ⌘T in the library to open today's page. With Print Today's Events on, each new day's page starts with that day's events from your calendar, as text you can move or delete. They are read on this iPad.") {
             SettingsValueRow(title: "Journal", value: journal?.title ?? String(localized: "None"))
             Toggle("Show On This Day", isOn: $showsOnThisDay).settingsRow()
-            Toggle("Print Today's Events", isOn: Binding(get: { printsAgenda }, set: setPrintsAgenda))
+            Toggle("Print Today's Events", isOn: Binding(get: { printsAgenda }, set: { setPrintsAgenda($0) }))
                 .accessibilityIdentifier("settings.journal.agenda")
                 .settingsRow()
             if journal != nil {
