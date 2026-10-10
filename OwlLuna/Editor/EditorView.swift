@@ -595,7 +595,7 @@ fileprivate struct EditorContent: View {
     private var cloth: ClothColor { document.manifest.cover.cloth }
 
     var body: some View {
-        studySheets(sheets(layout))
+        studySheets(AnyView(sheets(AnyView(layout))))
     }
 
     private var layout: some View {
@@ -724,9 +724,10 @@ fileprivate struct EditorContent: View {
         }
     }
 
-    /// The editor's sheets, alerts and observers, kept apart from the layout so each stays quick to type-check.
-    private func sheets<Content: View>(_ content: Content) -> some View {
-        content
+    /// Bound the modifier groups' concrete types. Passing the whole editor through every
+    /// presentation modifier makes SwiftUI resolve deeply nested generic metadata on open.
+    private func sheets(_ content: AnyView) -> some View {
+        let notebookSheets = AnyView(content
         .sheet(item: $editingNotes) { target in PresenterNotesSheet(document: document, pageID: target.id).presentationCornerRadius(Radius.sheet) }
         .sheet(item: $readingInk) { target in
             InkTextSheet(ink: target.ink) { text in
@@ -761,6 +762,8 @@ fileprivate struct EditorContent: View {
         }
         .sheet(item: $export) { job in ExportSheet(job: job).presentationCornerRadius(Radius.sheet) }
         .sheet(item: $editingCover) { record in CoverEditorView(record: record).presentationCornerRadius(Radius.sheet) }
+        )
+        let mediaSheets = AnyView(notebookSheets
         .fileImporter(isPresented: $importingPDF, allowedContentTypes: [.pdf]) { result in
             let position = session.currentPage + 1
             document.perform { await insertPDF(result, at: position) }
@@ -796,6 +799,8 @@ fileprivate struct EditorContent: View {
             }
             .presentationCornerRadius(Radius.sheet)
         }
+        )
+        let notices = AnyView(mediaSheets
         .notice("Rename Link", isPresented: $renamingLink, message: Text("Leave it empty to name the link after what it opens.")) {
             TextField("Name", text: $linkLabel)
         } actions: {
@@ -831,6 +836,8 @@ fileprivate struct EditorContent: View {
                 message: Text(errorMessage ?? session.recorder.errorMessage ?? "")) {
             Button("OK", role: .cancel) {}
         }
+        )
+        return notices
         .onChange(of: isPresentingModal) { _, presenting in session.canvas?.setModalShowing(presenting) }
         .onChange(of: session.recorder.isRecording) { _, recording in
             announce(recording ? String(localized: "Recording started") : String(localized: "Recording saved"))
@@ -861,7 +868,7 @@ fileprivate struct EditorContent: View {
     }
 
     /// Flashcards and the study guide.
-    private func studySheets<Content: View>(_ content: Content) -> some View {
+    private func studySheets(_ content: AnyView) -> some View {
         content
         .sheet(isPresented: $showingDeck) { DeckSheet(session: session).presentationCornerRadius(Radius.sheet) }
         .sheet(item: $cardDraft) { draft in

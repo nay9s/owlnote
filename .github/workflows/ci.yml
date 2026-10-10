@@ -24,8 +24,9 @@ permissions:
 jobs:
   test:
     name: Build and unit tests
-    # Preview image with Xcode 27; switch to macos-27 once it is generally available.
-    runs-on: xcode-27
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -79,3 +80,49 @@ jobs:
             ${{ runner.temp }}/build.log
             ${{ runner.temp }}/test.log
             ${{ runner.temp }}/OwlLuna.xcresult
+
+  notebook-open:
+    name: Open notebook in Release on iPadOS 26
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Boot an iPad on iPadOS 26
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          udid=$(xcrun simctl list devices available --json | jq -r '
+            [.devices | to_entries | sort_by(.key) | reverse | .[]
+              | select(.key | contains("iOS-26")) | .value[]
+              | select(.name | startswith("iPad"))]
+            | (map(select(.name | contains("Air"))) + .)
+            | first | .udid // empty')
+          test -n "$udid"
+          echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+
+      - name: Create, open and reopen a notebook
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project OwlLuna.xcodeproj \
+            -scheme OwlLuna \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -only-testing:OwlLunaUITests/NotebookOpenUITests \
+            -parallel-testing-enabled NO \
+            -resultBundlePath "$RUNNER_TEMP/NotebookOpen.xcresult" \
+            2>&1 | tee "$RUNNER_TEMP/notebook-open.log" \
+            | xcbeautify --renderer github-actions
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: notebook-open-results
+          path: |
+            ${{ runner.temp }}/notebook-open.log
+            ${{ runner.temp }}/NotebookOpen.xcresult

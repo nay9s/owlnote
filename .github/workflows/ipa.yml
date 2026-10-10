@@ -19,8 +19,9 @@ concurrency:
 jobs:
   ipa:
     name: Build unsigned iPad IPA
-    # The source uses FoundationModels APIs introduced in the iOS 27 SDK.
-    runs-on: xcode-27
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -37,6 +38,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/owlnote.xcarchive" \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY='' \
@@ -78,6 +80,14 @@ jobs:
           This IPA is unsigned. Sign the app and its extension with suitable Apple
           certificates and provisioning profiles before installing on an iPad.
           EOF
+
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: owlnote-debug-symbols
+          path: ${{ runner.temp }}/owlnote.xcarchive/dSYMs
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload archive log on failure
         if: failure()

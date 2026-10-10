@@ -289,6 +289,8 @@ struct AppleStudyModel: StudyModel {
             default: throw error
             }
         } catch {
+            // LanguageModelError is declared in the iOS 27 SDK (Xcode 27 / Swift 6.4).
+            #if compiler(>=6.4)
             if #available(iOS 27, *), let known = error as? LanguageModelError {
                 switch known {
                 case .contextSizeExceeded: throw StudyGuideError.tooLong
@@ -297,6 +299,7 @@ struct AppleStudyModel: StudyModel {
                 default: throw error
                 }
             }
+            #endif
             throw error
         }
     }
