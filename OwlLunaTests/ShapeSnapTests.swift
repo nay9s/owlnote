@@ -30,6 +30,15 @@ final class ShapeSnapTests: XCTestCase {
         }
     }
 
+    private func openArc() -> [CGPoint] {
+        (0...40).map { index in
+            let angle = CGFloat(index) / 40 * CGFloat.pi
+            let x = 200 + 150 * cos(angle)
+            let y = 300 - 150 * sin(angle)
+            return CGPoint(x: x, y: y)
+        }
+    }
+
     func testAWobblyLineBecomesStraight() throws {
         let drawn = along([CGPoint(x: 100, y: 200), CGPoint(x: 420, y: 330)])
         guard case .line(let a, let b)? = ShapeRecognizer.recognize(drawn) else { return XCTFail("not read as a line") }
@@ -82,9 +91,14 @@ final class ShapeSnapTests: XCTestCase {
         guard case .polyline(let points)? = ShapeRecognizer.recognize(corner) else { return XCTFail("an L wasn't read as two straight lines") }
         XCTAssertEqual(points.count, 3)
 
-        let arc = (0...40).map { CGPoint(x: 200 + 150 * cos(CGFloat($0) / 40 * .pi), y: 300 - 150 * sin(CGFloat($0) / 40 * .pi)) }
+        let arc = openArc()
         XCTAssertNil(ShapeRecognizer.recognize(arc), "a curve stays as it was drawn")
-        let scribble = (0...120).map { CGPoint(x: 100 + CGFloat($0) * 2 + 40 * sin(CGFloat($0) * 0.9), y: 200 + 60 * sin(CGFloat($0) * 0.37) + 30 * cos(CGFloat($0) * 1.3)) }
+        let scribble = (0...120).map { index in
+            let step = CGFloat(index)
+            let x = 100 + step * 2 + 40 * sin(step * 0.9)
+            let y = 200 + 60 * sin(step * 0.37) + 30 * cos(step * 1.3)
+            return CGPoint(x: x, y: y)
+        }
         XCTAssertNil(ShapeRecognizer.recognize(scribble))
         XCTAssertNil(ShapeRecognizer.recognize(along([CGPoint(x: 100, y: 100), CGPoint(x: 110, y: 104)])), "a dot or a tick is too small to be a shape")
         XCTAssertNil(ShapeRecognizer.recognize([]))
@@ -126,6 +140,6 @@ final class ShapeSnapTests: XCTestCase {
         for point in circle.stroke.path.interpolatedPoints(by: .distance(6)).map(\.location) {
             XCTAssertEqual(ShapeRecognizer.distance(point, CGPoint(x: 300, y: 300)), 100, accuracy: 6)
         }
-        XCTAssertNil(ShapeSnap.snapped(pencilStroke((0...40).map { CGPoint(x: 200 + 150 * cos(CGFloat($0) / 40 * .pi), y: 300 - 150 * sin(CGFloat($0) / 40 * .pi)) })))
+        XCTAssertNil(ShapeSnap.snapped(pencilStroke(openArc())))
     }
 }
